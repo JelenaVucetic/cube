@@ -19,6 +19,11 @@ class CubeController extends BaseController
 
         $cell = Cell::find($cell_id);
 
+        //rotate edge
+
+        $this->rotateEdge($cell, $rotate, $direction);
+        die();
+
         // change cells coordinates on left face
         $left_face = Face::where('name', 'left')->first();
         $left_face_cells = $left_face->cells->pluck('id')->toArray();
@@ -27,7 +32,22 @@ class CubeController extends BaseController
 
         $rotated = $this->rotateSideCells($matrix);
 
+
+
         return $rotated;
+    }
+
+    public function rotateEdge($cell, $rotate, $direction)
+    {
+        $front_cells =  Cell::where(['face_id' => $cell->face_id, 'y_coordinate' => $cell->y_coordinate])->get()->toArray();
+
+        $bottom_face = Face::where('name', 'bottom')->first();
+        $bottom_cells = Cell::where(['face_id' => $bottom_face->id, 'y_coordinate' => $cell->y_coordinate])->get()->toArray();
+
+        foreach ($front_cells as $key => $cell) {
+            $this->swapCoordinates($cell['id'], $bottom_cells[$key]['id'], $cell['face_id'], $bottom_cells[$key]['face_id']);
+        }
+
     }
 
     public function rotateSideCells($matrix)
@@ -62,7 +82,7 @@ class CubeController extends BaseController
         return $matrix;
     }
 
-    public function swapCoordinates($old_cell_id, $new_cell_id)
+    public function swapCoordinates($old_cell_id, $new_cell_id, $old_cell_face_id = null, $new_cell_face_id = null )
     {
         $old_cell = Cell::find($old_cell_id);
         $old_x = $old_cell->x_coordinate;
@@ -72,14 +92,19 @@ class CubeController extends BaseController
         $new_x = $new_cell->x_coordinate;
         $new_y = $new_cell->y_coordinate;
 
+        $old_cell_face_id = $old_cell_face_id ?? $old_cell->face_id;
+        $new_cell_face_id = $new_cell_face_id ?? $new_cell->face_id;
+
         $old_cell->update([
             'x_coordinate' => $new_x,
-            'y_coordinate' => $new_y
+            'y_coordinate' => $new_y,
+            'face_id' => $new_cell_face_id
         ]);
 
         $new_cell->update([
             'x_coordinate' => $old_x,
-            'y_coordinate' => $old_y
+            'y_coordinate' => $old_y,
+            'face_id' => $old_cell_face_id
         ]);
 
     }
