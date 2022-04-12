@@ -13,9 +13,8 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('faces', function (Blueprint $table) {
+        Schema::create('cubes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cube_id');
             $table->string('name');
             $table->timestamps();
         });
@@ -28,6 +27,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('faces');
+        Schema::dropIfExists('cubes');
     }
 };

@@ -3,108 +3,90 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\API\BaseController;
+use App\Http\Requests\RotateCubeRequest;
+use App\Http\Requests\StoreCubeRequest;
+use App\Http\Resources\CubeResource;
 use App\Models\Cell;
+use App\Models\Cube;
 use App\Models\Face;
-use Illuminate\Http\Request;
+use App\Services\CubeService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Config;
 
 class CubeController extends BaseController
 {
-    public function index()
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param StoreCubeRequest $request
+     * @return JsonResponse
+     */
+    public function store(StoreCubeRequest $request, CubeService $store)
     {
-        $cube = json_decode(file_get_contents(public_path() . "/newcube.json"), true);
+        $cube = Cube::create($request->validated());
 
-        $cell_id = 1;
-        $rotate = 'down';
-        $direction = 'clockwise';
+        $store->storeFacesAndCells($cube);
 
-        $cell = Cell::find($cell_id);
-
-        //rotate edge
-
-        $this->rotateEdge($cell, $rotate, $direction);
-        die();
-
-        // change cells coordinates on left face
-        $left_face = Face::where('name', 'left')->first();
-        $left_face_cells = $left_face->cells->pluck('id')->toArray();
-
-        $matrix = array_chunk($left_face_cells, 3);
-
-        $rotated = $this->rotateSideCells($matrix);
-
-
-
-        return $rotated;
+        return $this->sendResponse(new CubeResource($cube), 'Cube created successfully.');
     }
 
-    public function rotateEdge($cell, $rotate, $direction)
+    public function show(Cube $cube)
     {
-        $front_cells =  Cell::where(['face_id' => $cell->face_id, 'y_coordinate' => $cell->y_coordinate])->get()->toArray();
+        return $this->sendResponse(new CubeResource($cube), 'Cube retrieved successfully.');
+    }
 
-        $bottom_face = Face::where('name', 'bottom')->first();
-        $bottom_cells = Cell::where(['face_id' => $bottom_face->id, 'y_coordinate' => $cell->y_coordinate])->get()->toArray();
+    public function rotation(RotateCubeRequest $request)
+    {
+        $turn = $request->turn;
 
-        foreach ($front_cells as $key => $cell) {
-            $this->swapCoordinates($cell['id'], $bottom_cells[$key]['id'], $cell['face_id'], $bottom_cells[$key]['face_id']);
-        }
+        // change cells coordinates for specific turn
+        $face = Face::where('name', $turn)->first();
+        $cube = $face->cube;
+        $cells = $face->cells->pluck('id')->toArray();
+        $matrix = array_chunk($cells, 3);
+
+        $face->rotateFaceCells($matrix);
+
+        $this->rotateEdge($cube, $turn);
+
+        return $this->sendResponse(new CubeResource($cube), 'Cube rotated successfully.');
 
     }
 
-    public function rotateSideCells($matrix)
+
+    public function rotateEdge($cube, $turn)
     {
-        $initial_matrix = $matrix;
-        for ($i = 0; $i < 3; $i++) {
-            for ($j = $i; $j < 3; $j++) {
-                $temp = $matrix[$i][$j];
-                $matrix[$i][$j] = $matrix[$j][$i];
-                $matrix[$j][$i] = $temp;
+        if ($turn == 'left' || $turn == 'right') {
+            $y = ($turn == 'left') ?  1 : 3;
 
-                if($temp != $matrix[$i][$j]) {
-                    $this->swapCoordinates($temp, $matrix[$i][$j]);
-                }
+            $rotation_data = $cube->getRotationData($y);
 
+            foreach ($rotation_data['front_column'] as $key => $cell) {
+                $this->updateCell($cell->id, $rotation_data['bottom_column'][$key]->face_id, $rotation_data['bottom_x_coordinates'][$key]);
+            }
+
+            foreach ($rotation_data['bottom_column'] as $key => $cell) {
+                $this->updateCell($cell->id, $rotation_data['back_column'][$key]->face_id, $rotation_data['back_x_coordinates'][$key]);
+            }
+
+            foreach ($rotation_data['back_column'] as $key => $cell) {
+                $this->updateCell($cell->id, $rotation_data['top_column'][$key]->face_id, $rotation_data['top_x_coordinates'][$key]);
+            }
+            foreach ($rotation_data['back_column'] as $key => $cell) {
+                $this->updateCell($cell->id, $rotation_data['front_column'][$key]->face_id, $rotation_data['front_x_coordinates'][$key]);
             }
         }
 
-        for ($i = 0; $i < 3; $i++) {
-            for ($j = 0; $j < 3 / 2; $j++) {
-                $temp = $initial_matrix[$i][$j];
-                $initial_matrix[$i][$j] = $initial_matrix[$i][2 - $j]; // N-1-$j
-                $initial_matrix[$i][2 - $j] = $temp;
-
-                if($temp != $initial_matrix[$i][$j]) {
-                    $this->swapCoordinates($temp, $initial_matrix[$i][$j]);
-                }
-            }
-
-        }
-
-        return $matrix;
     }
 
-    public function swapCoordinates($old_cell_id, $new_cell_id, $old_cell_face_id = null, $new_cell_face_id = null )
+    public function updateCell($old_cell_id, $face_id, $x)
     {
         $old_cell = Cell::find($old_cell_id);
-        $old_x = $old_cell->x_coordinate;
-        $old_y = $old_cell->y_coordinate;
-
-        $new_cell = Cell::find($new_cell_id);
-        $new_x = $new_cell->x_coordinate;
-        $new_y = $new_cell->y_coordinate;
-
-        $old_cell_face_id = $old_cell_face_id ?? $old_cell->face_id;
-        $new_cell_face_id = $new_cell_face_id ?? $new_cell->face_id;
 
         $old_cell->update([
-            'x_coordinate' => $new_x,
-            'y_coordinate' => $new_y,
-            'face_id' => $new_cell_face_id
-        ]);
-
-        $new_cell->update([
-            'x_coordinate' => $old_x,
-            'y_coordinate' => $old_y,
-            'face_id' => $old_cell_face_id
+            'x_coordinate' => $x,
+            //'y_coordinate' => $new_y,
+            'face_id' => $face_id
         ]);
 
     }

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Cell;
+use App\Models\Cube;
 use App\Models\Face;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -16,9 +17,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
-        // \App\Models\User::factory(10)->create();
+        $cube = Cube::create([
+            'name' => 'Rubick\'s Cube'
+        ]);
 
         $front = Face::create([
+            'cube_id' => $cube->id,
             'name' => 'front',
         ]);
 
@@ -34,6 +38,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $back = Face::create([
+            'cube_id' => $cube->id,
             'name' => 'back',
         ]);
 
@@ -50,6 +55,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $top = Face::create([
+            'cube_id' => $cube->id,
             'name' => 'top',
         ]);
 
@@ -65,6 +71,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $bottom = Face::create([
+            'cube_id' => $cube->id,
             'name' => 'bottom',
         ]);
 
@@ -80,6 +87,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $left = Face::create([
+            'cube_id' => $cube->id,
             'name' => 'left'
         ]);
 
@@ -95,6 +103,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $right = Face::create([
+            'cube_id' => $cube->id,
             'name' => 'right'
         ]);
 

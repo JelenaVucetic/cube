@@ -19,4 +19,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::get('/', [CubeController::class, 'index']);
+Route::get('/cube', [CubeController::class, 'index']);
+Route::post('/cube', [CubeController::class, 'store']);
+Route::get('/cube/{cube}', [CubeController::class, 'show']);
+Route::post('/cube/{cube}/rotation', [CubeController::class, 'rotation']);
+
